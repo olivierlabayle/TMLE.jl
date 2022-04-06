@@ -15,9 +15,9 @@ end
 For a given Report, provides a summary of useful statistics.
 
 # Arguments:
-    - r: A query report, for instance extracted via `queryreport`
+    - r: A `Report``, for instance extracted via `queryreport`
     - tail: controls weither the test is single or two sided: eg :left, :right or :both
-    - alpha: level of the test
+    - level: level of the test
 """
 function briefreport(r::Report; tail=:both, level=0.95)
     testresult = ztest(r)
@@ -39,7 +39,7 @@ For a given Machine{<:TMLEstimator}, provides a summary of useful statistics for
 # Arguments:
     - mach: The fitted machine
     - tail: controls weither the test is single or two sided: eg :left, :right or :both
-    - alpha: level of the test
+    - level: level of the test
 """
 briefreport(mach::Machine{TMLEstimator}; tail=:both, level=0.95) =
     Tuple(briefreport(r, tail=tail, level=level) for r in queryreports(mach))
@@ -58,8 +58,9 @@ queryreports(mach::Machine{<:TMLEstimator}) =
 """
     ztest(r::Report)
 
-If the original data is i.i.d, the influence curve is Normally distributed
-and its variance can be estimated by the sample variance over all samples.
+If the original data is i.i.d, the estimator is Normally distributed 
+with variance the variance of the efficient influence curve. This 
+variance can be estimated by the sample variance over all samples.
 We can then perform a Z-Test for a given Report object. It will test weither the measured 
 effect size is significantly different from 0 under those assumptions.
 """ 
@@ -69,23 +70,37 @@ ztest(r::Report) =
 """
     ztest(mach::Machine{<:TMLEstimator}, target_idx::Int, query_idx::Int)
 
-Performs a Z-Test for the given target/query pair.
-See also: ztest(r::Report)
+Performs a Z-Test for the given target/query pair where the target and query 
+are identified by their index.
+See: `ztest(r::Report)`
 """
 ztest(mach::Machine{<:TMLEstimator}, target_idx::Int, query_idx::Int) = ztest(queryreport(mach, target_idx, query_idx))
 """
     ztest(mach::Machine{<:TMLEstimator})
 
 Performs a Z-Test for all target/query pairs fitted by the machine.
-See also: ztest(r::Report)
+See also: `ztest(r::Report)`
 """
 ztest(mach::Machine{<:TMLEstimator}) =
     Tuple((target_name=r.target_name, query_name=r.query.name, test_result=ztest(r)) 
         for r in queryreports(mach))
 
 # Paired Test
+"""
+    ztest(r₁::Report, r₂::Report)
+
+Performs a paired z-test for two reports `r₁` and `r₂`. The test will decide weither
+the two corresponding estimates are significantly different fron one another.
+"""
 ztest(r₁::Report, r₂::Report) =
     OneSampleZTest(r₁.influence_curve .+ r₁.estimate, r₂.influence_curve .+ r₂.estimate)
+
+"""
+    ztest(mach::Machine{<:TMLEstimator}, target_idx::Int, query_idx_pair::Pair{Int, Int})
+
+Performs a paired z-test for the target identified by `target_idx` and queries identified by `query_idx_pair`.
+See: `ztest(r₁::Report, r₂::Report)`
+"""
 ztest(mach::Machine{<:TMLEstimator}, target_idx::Int, query_idx_pair::Pair{Int, Int}) =
     ztest(queryreport(mach, target_idx, query_idx_pair[1]), queryreport(mach, target_idx, query_idx_pair[2]))
 
